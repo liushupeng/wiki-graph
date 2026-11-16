@@ -65,10 +65,12 @@ def cmd_ask(args: argparse.Namespace) -> int:
     graph = build_agent_graph(settings)
     thread_id = args.thread or str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
-    initial = {
+    initial: dict = {
         "messages": [HumanMessage(content=args.question)],
         "evidence_status": "insufficient",
         "rag_budget": settings.rag_budget,
+        "rag_calls_used": 0,
+        "evidence_entries": [],
         "active_tools": ["search_notes", "read_note"],
     }
     final = graph.invoke(initial, config)

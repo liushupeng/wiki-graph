@@ -11,6 +11,8 @@ def test_graph_compiles_without_invoke() -> None:
         "messages": [],
         "evidence_status": "insufficient",
         "rag_budget": 4,
+        "rag_calls_used": 0,
+        "evidence_entries": [],
         "active_tools": ["search_notes", "read_note"],
     }
     assert state["rag_budget"] == 4
