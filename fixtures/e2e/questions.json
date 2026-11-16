@@ -1,0 +1,744 @@
+{
+  "source_repo": "wiki-agent",
+  "source_path": "evaluation/e2e/questions.json",
+  "questions": [
+    {
+      "id": "e2e-single-http-cache",
+      "category": "single-source-fact",
+      "queryType": "fact-retrieval",
+      "primaryStage": "agent",
+      "difficulty": "easy",
+      "question": "HTTP 缓存文档中，max-age=300 表示什么？请给出来源。",
+      "expectedSource": "dev/http-caching.md",
+      "expectedTerms": [
+        "300 秒",
+        "新鲜"
+      ],
+      "rubric": {
+        "requiredFacts": [
+          "300 秒内可视为新鲜",
+          "引用 dev/http-caching.md"
+        ],
+        "forbiddenClaims": [
+          "把 300 解释为字节数"
+        ],
+        "expectedBehavior": "answer",
+        "citationRequired": true,
+        "failureTags": [
+          "missing_fact",
+          "wrong_fact",
+          "missing_citation",
+          "hallucination"
+        ]
+      },
+      "contract": {
+        "schemaVersion": 1,
+        "strictness": "hard",
+        "answer": {
+          "minTermCoverage": 1
+        },
+        "evidence": {
+          "expectedSources": [
+            "dev/http-caching.md"
+          ],
+          "requireSourceHit": true,
+          "minimumSufficiency": "sufficient"
+        },
+        "tools": {
+          "mustUseAny": [
+            "search_notes",
+            "grep_notes",
+            "read_note"
+          ],
+          "maxRagCalls": 4
+        },
+        "trajectory": {
+          "maxSteps": 6,
+          "allowedTerminationReasons": [
+            "completed"
+          ],
+          "maxToolFailures": 0,
+          "forbidRepeatedFailures": true
+        }
+      }
+    },
+    {
+      "id": "e2e-single-k8s-readiness",
+      "category": "single-source-fact",
+      "queryType": "fact-retrieval",
+      "primaryStage": "agent",
+      "difficulty": "easy",
+      "question": "readiness probe 失败时 Pod 会发生什么？请引用对应文档。",
+      "expectedSource": "dev/kubernetes-basics.md",
+      "expectedTerms": [
+        "Service 端点",
+        "不会直接重启"
+      ],
+      "rubric": {
+        "requiredFacts": [
+          "Pod 从 Service 端点移除",
+          "不会直接重启容器",
+          "引用来源"
+        ],
+        "forbiddenClaims": [
+          "声称 readiness 失败一定重启容器"
+        ],
+        "expectedBehavior": "answer",
+        "citationRequired": true,
+        "failureTags": [
+          "missing_fact",
+          "wrong_fact",
+          "missing_citation",
+          "hallucination"
+        ]
+      },
+      "contract": {
+        "schemaVersion": 1,
+        "strictness": "hard",
+        "answer": {
+          "minTermCoverage": 1
+        },
+        "evidence": {
+          "expectedSources": [
+            "dev/kubernetes-basics.md"
+          ],
+          "requireSourceHit": true,
+          "minimumSufficiency": "sufficient"
+        },
+        "tools": {
+          "mustUseAny": [
+            "search_notes",
+            "grep_notes",
+            "read_note"
+          ],
+          "maxRagCalls": 4
+        },
+        "trajectory": {
+          "maxSteps": 6,
+          "allowedTerminationReasons": [
+            "completed"
+          ],
+          "maxToolFailures": 0,
+          "forbidRepeatedFailures": true
+        }
+      }
+    },
+    {
+      "id": "e2e-single-ts-unknown",
+      "category": "single-source-fact",
+      "queryType": "fact-retrieval",
+      "primaryStage": "agent",
+      "difficulty": "easy",
+      "question": "为什么 TypeScript 的 unknown 比 any 更安全？请给出来源。",
+      "expectedSource": "dev/typescript-safety.md",
+      "expectedTerms": [
+        "缩小类型",
+        "更安全"
+      ],
+      "rubric": {
+        "requiredFacts": [
+          "使用前先缩小类型",
+          "引用 dev/typescript-safety.md"
+        ],
+        "forbiddenClaims": [
+          "声称 unknown 可任意访问属性"
+        ],
+        "expectedBehavior": "answer",
+        "citationRequired": true,
+        "failureTags": [
+          "missing_fact",
+          "wrong_fact",
+          "missing_citation",
+          "hallucination"
+        ]
+      },
+      "contract": {
+        "schemaVersion": 1,
+        "strictness": "hard",
+        "answer": {
+          "minTermCoverage": 1
+        },
+        "evidence": {
+          "expectedSources": [
+            "dev/typescript-safety.md"
+          ],
+          "requireSourceHit": true,
+          "minimumSufficiency": "sufficient"
+        },
+        "tools": {
+          "mustUseAny": [
+            "search_notes",
+            "grep_notes",
+            "read_note"
+          ],
+          "maxRagCalls": 4
+        },
+        "trajectory": {
+          "maxSteps": 6,
+          "allowedTerminationReasons": [
+            "completed"
+          ],
+          "maxToolFailures": 0,
+          "forbidRepeatedFailures": true
+        }
+      }
+    },
+    {
+      "id": "e2e-single-node-backpressure",
+      "category": "single-source-fact",
+      "queryType": "fact-retrieval",
+      "primaryStage": "agent",
+      "difficulty": "medium",
+      "question": "Writable.write() 返回 false 时应如何响应背压？请引用来源。",
+      "expectedSource": "dev/node-streams.md",
+      "expectedTerms": [
+        "暂停",
+        "drain"
+      ],
+      "rubric": {
+        "requiredFacts": [
+          "生产者暂停",
+          "等待 drain 事件",
+          "引用来源"
+        ],
+        "forbiddenClaims": [
+          "继续无条件写入"
+        ],
+        "expectedBehavior": "answer",
+        "citationRequired": true,
+        "failureTags": [
+          "missing_fact",
+          "wrong_fact",
+          "missing_citation",
+          "hallucination"
+        ]
+      },
+      "contract": {
+        "schemaVersion": 1,
+        "strictness": "hard",
+        "answer": {
+          "minTermCoverage": 1
+        },
+        "evidence": {
+          "expectedSources": [
+            "dev/node-streams.md"
+          ],
+          "requireSourceHit": true,
+          "minimumSufficiency": "sufficient"
+        },
+        "tools": {
+          "mustUseAny": [
+            "search_notes",
+            "grep_notes",
+            "read_note"
+          ],
+          "maxRagCalls": 4
+        },
+        "trajectory": {
+          "maxSteps": 6,
+          "allowedTerminationReasons": [
+            "completed"
+          ],
+          "maxToolFailures": 0,
+          "forbidRepeatedFailures": true
+        }
+      }
+    },
+    {
+      "id": "e2e-multi-sql-isolation",
+      "category": "multi-part",
+      "queryType": "multi-condition",
+      "primaryStage": "agent",
+      "difficulty": "medium",
+      "question": "根据 SQL 事务文档，READ COMMITTED 阻止什么问题？REPEATABLE READ 对已读取行提供什么保证？请分别回答。",
+      "expectedSource": "dev/sql-transactions.md",
+      "expectedTerms": [
+        "脏读",
+        "可重复读取"
+      ],
+      "rubric": {
+        "requiredFacts": [
+          "READ COMMITTED 阻止脏读",
+          "REPEATABLE READ 保证已读取行可重复读取",
+          "区分两个级别"
+        ],
+        "forbiddenClaims": [
+          "互换两个隔离级别"
+        ],
+        "expectedBehavior": "answer",
+        "citationRequired": true,
+        "failureTags": [
+          "missing_fact",
+          "wrong_fact",
+          "missing_citation",
+          "hallucination"
+        ]
+      },
+      "contract": {
+        "schemaVersion": 1,
+        "strictness": "hard",
+        "answer": {
+          "minTermCoverage": 1
+        },
+        "evidence": {
+          "expectedSources": [
+            "dev/sql-transactions.md"
+          ],
+          "requireSourceHit": true,
+          "minimumSufficiency": "sufficient"
+        },
+        "tools": {
+          "mustUseAny": [
+            "search_notes",
+            "grep_notes",
+            "read_note"
+          ],
+          "maxRagCalls": 4
+        },
+        "trajectory": {
+          "maxSteps": 6,
+          "allowedTerminationReasons": [
+            "completed"
+          ],
+          "maxToolFailures": 0,
+          "forbidRepeatedFailures": true
+        }
+      }
+    },
+    {
+      "id": "e2e-multi-k8s-probes",
+      "category": "multi-part",
+      "queryType": "multi-condition",
+      "primaryStage": "agent",
+      "difficulty": "medium",
+      "question": "分别说明 readiness probe 与 liveness probe 持续失败的效果，并引用来源。",
+      "expectedSource": "dev/kubernetes-basics.md",
+      "expectedTerms": [
+        "Service 端点",
+        "重启容器"
+      ],
+      "rubric": {
+        "requiredFacts": [
+          "readiness 影响 Service 端点",
+          "liveness 可触发重启容器",
+          "区分两个探针"
+        ],
+        "forbiddenClaims": [
+          "把两个探针效果互换"
+        ],
+        "expectedBehavior": "answer",
+        "citationRequired": true,
+        "failureTags": [
+          "missing_fact",
+          "wrong_fact",
+          "missing_citation",
+          "hallucination"
+        ]
+      },
+      "contract": {
+        "schemaVersion": 1,
+        "strictness": "hard",
+        "answer": {
+          "minTermCoverage": 1
+        },
+        "evidence": {
+          "expectedSources": [
+            "dev/kubernetes-basics.md"
+          ],
+          "requireSourceHit": true,
+          "minimumSufficiency": "sufficient"
+        },
+        "tools": {
+          "mustUseAny": [
+            "search_notes",
+            "grep_notes",
+            "read_note"
+          ],
+          "maxRagCalls": 4
+        },
+        "trajectory": {
+          "maxSteps": 6,
+          "allowedTerminationReasons": [
+            "completed"
+          ],
+          "maxToolFailures": 0,
+          "forbidRepeatedFailures": true
+        }
+      }
+    },
+    {
+      "id": "e2e-cross-git-testing",
+      "category": "cross-source-synthesis",
+      "queryType": "cross-document",
+      "primaryStage": "agent",
+      "difficulty": "hard",
+      "question": "结合 Git 协作文档与自动化测试策略：解决冲突后应做哪些检查？不稳定测试又应如何处理？请分别引用两篇来源。",
+      "expectedSources": [
+        "dev/git-workflows.md",
+        "dev/testing-strategy.md"
+      ],
+      "expectedTerms": [
+        "git diff --check",
+        "隔离",
+        "记录原因"
+      ],
+      "rubric": {
+        "requiredFacts": [
+          "冲突后运行测试和 git diff --check",
+          "隔离不稳定测试并记录原因",
+          "分别引用两篇来源"
+        ],
+        "forbiddenClaims": [
+          "建议用无限重试掩盖不稳定测试"
+        ],
+        "expectedBehavior": "answer",
+        "citationRequired": true,
+        "failureTags": [
+          "missing_fact",
+          "wrong_fact",
+          "missing_citation",
+          "hallucination"
+        ]
+      },
+      "contract": {
+        "schemaVersion": 1,
+        "strictness": "hard",
+        "answer": {
+          "minTermCoverage": 1
+        },
+        "evidence": {
+          "expectedSources": [
+            "dev/git-workflows.md",
+            "dev/testing-strategy.md"
+          ],
+          "requireSourceHit": true,
+          "requireAllExpectedSources": true,
+          "minDistinctSources": 2,
+          "minimumSufficiency": "sufficient"
+        },
+        "tools": {
+          "mustUseAny": [
+            "search_notes",
+            "grep_notes",
+            "read_note"
+          ],
+          "maxRagCalls": 6
+        },
+        "trajectory": {
+          "maxSteps": 8,
+          "allowedTerminationReasons": [
+            "completed"
+          ],
+          "maxToolFailures": 0,
+          "forbidRepeatedFailures": true
+        }
+      }
+    },
+    {
+      "id": "e2e-cross-observability-security",
+      "category": "cross-source-synthesis",
+      "queryType": "cross-document",
+      "primaryStage": "agent",
+      "difficulty": "hard",
+      "question": "结合可观测性与 Web 安全文档：RED 方法关注什么？防御 SQL 注入应采用什么方式？请分别标注来源。",
+      "expectedSources": [
+        "dev/observability.md",
+        "dev/web-security.md"
+      ],
+      "expectedTerms": [
+        "Rate",
+        "Errors",
+        "Duration",
+        "参数化查询"
+      ],
+      "rubric": {
+        "requiredFacts": [
+          "RED 包含 Rate、Errors、Duration",
+          "SQL 注入防御使用参数化查询",
+          "分别引用来源"
+        ],
+        "forbiddenClaims": [
+          "建议拼接不可信输入"
+        ],
+        "expectedBehavior": "answer",
+        "citationRequired": true,
+        "failureTags": [
+          "missing_fact",
+          "wrong_fact",
+          "missing_citation",
+          "hallucination"
+        ]
+      },
+      "contract": {
+        "schemaVersion": 1,
+        "strictness": "hard",
+        "answer": {
+          "minTermCoverage": 1
+        },
+        "evidence": {
+          "expectedSources": [
+            "dev/observability.md",
+            "dev/web-security.md"
+          ],
+          "requireSourceHit": true,
+          "requireAllExpectedSources": true,
+          "minDistinctSources": 2,
+          "minimumSufficiency": "sufficient"
+        },
+        "tools": {
+          "mustUseAny": [
+            "search_notes",
+            "grep_notes",
+            "read_note"
+          ],
+          "maxRagCalls": 6
+        },
+        "trajectory": {
+          "maxSteps": 8,
+          "allowedTerminationReasons": [
+            "completed"
+          ],
+          "maxToolFailures": 0,
+          "forbidRepeatedFailures": true
+        }
+      }
+    },
+    {
+      "id": "e2e-explicit-docker",
+      "category": "explicit-source-explanation",
+      "queryType": "source-constrained",
+      "primaryStage": "agent",
+      "difficulty": "medium",
+      "question": "只根据 dev/docker-containers.md 说明 ENTRYPOINT 与 CMD 的职责，不要引用其他来源。",
+      "expectedSource": "dev/docker-containers.md",
+      "expectedTerms": [
+        "主要可执行程序",
+        "默认参数"
+      ],
+      "rubric": {
+        "requiredFacts": [
+          "ENTRYPOINT 定义主要可执行程序",
+          "CMD 提供默认参数",
+          "只引用指定来源"
+        ],
+        "forbiddenClaims": [
+          "引用其他来源"
+        ],
+        "expectedBehavior": "answer",
+        "citationRequired": true,
+        "failureTags": [
+          "missing_fact",
+          "wrong_fact",
+          "missing_citation",
+          "hallucination"
+        ]
+      },
+      "contract": {
+        "schemaVersion": 1,
+        "strictness": "hard",
+        "answer": {
+          "minTermCoverage": 1
+        },
+        "evidence": {
+          "expectedSources": [
+            "dev/docker-containers.md"
+          ],
+          "requireSourceHit": true,
+          "minimumSufficiency": "sufficient"
+        },
+        "tools": {
+          "mustUseAny": [
+            "grep_notes",
+            "read_note"
+          ],
+          "forbid": [
+            "execute_command",
+            "read_file"
+          ],
+          "maxRagCalls": 4
+        },
+        "trajectory": {
+          "maxSteps": 6,
+          "allowedTerminationReasons": [
+            "completed"
+          ],
+          "maxToolFailures": 0,
+          "forbidRepeatedFailures": true
+        }
+      }
+    },
+    {
+      "id": "e2e-explicit-security",
+      "category": "explicit-source-explanation",
+      "queryType": "source-constrained",
+      "primaryStage": "agent",
+      "difficulty": "medium",
+      "question": "只根据 dev/web-security.md 说明密码应使用哪类哈希及示例算法。",
+      "expectedSource": "dev/web-security.md",
+      "expectedTerms": [
+        "带盐",
+        "成本可调",
+        "Argon2id"
+      ],
+      "rubric": {
+        "requiredFacts": [
+          "使用带盐且成本可调的专用哈希",
+          "示例为 Argon2id",
+          "只引用指定来源"
+        ],
+        "forbiddenClaims": [
+          "推荐通用快速哈希"
+        ],
+        "expectedBehavior": "answer",
+        "citationRequired": true,
+        "failureTags": [
+          "missing_fact",
+          "wrong_fact",
+          "missing_citation",
+          "hallucination"
+        ]
+      },
+      "contract": {
+        "schemaVersion": 1,
+        "strictness": "hard",
+        "answer": {
+          "minTermCoverage": 1
+        },
+        "evidence": {
+          "expectedSources": [
+            "dev/web-security.md"
+          ],
+          "requireSourceHit": true,
+          "minimumSufficiency": "sufficient"
+        },
+        "tools": {
+          "mustUseAny": [
+            "grep_notes",
+            "read_note"
+          ],
+          "forbid": [
+            "execute_command",
+            "read_file"
+          ],
+          "maxRagCalls": 4
+        },
+        "trajectory": {
+          "maxSteps": 6,
+          "allowedTerminationReasons": [
+            "completed"
+          ],
+          "maxToolFailures": 0,
+          "forbidRepeatedFailures": true
+        }
+      }
+    },
+    {
+      "id": "e2e-negative-quantum-error-rate",
+      "category": "insufficient-evidence",
+      "queryType": "unanswerable",
+      "primaryStage": "agent",
+      "difficulty": "hard",
+      "question": "公开技术语料中记录的 2032 年量子处理器逻辑错误率是多少？若无证据请明确说明，不要猜测。",
+      "expectedTerms": [],
+      "rubric": {
+        "requiredFacts": [
+          "明确说明未找到 2032 年量子处理器逻辑错误率证据",
+          "不猜测数值",
+          "指出需要补充对应公开资料"
+        ],
+        "forbiddenClaims": [
+          "编造错误率",
+          "暗示已有对应报告"
+        ],
+        "expectedBehavior": "insufficient-evidence",
+        "citationRequired": false,
+        "failureTags": [
+          "failed_abstention",
+          "hallucination",
+          "unsupported_claim"
+        ]
+      },
+      "contract": {
+        "schemaVersion": 1,
+        "strictness": "hard",
+        "answer": {
+          "requiredPhrasesAny": [
+            "没有找到",
+            "未找到",
+            "证据不足",
+            "无法确认"
+          ]
+        },
+        "tools": {
+          "mustUseAny": [
+            "search_notes",
+            "grep_notes"
+          ],
+          "maxRagCalls": 4
+        },
+        "trajectory": {
+          "maxSteps": 6,
+          "allowedTerminationReasons": [
+            "completed"
+          ],
+          "maxToolFailures": 0,
+          "forbidRepeatedFailures": true
+        }
+      }
+    },
+    {
+      "id": "e2e-negative-mars-database",
+      "category": "insufficient-evidence",
+      "queryType": "unanswerable",
+      "primaryStage": "agent",
+      "difficulty": "hard",
+      "question": "公开技术语料是否指定了火星基地数据库的生产集群节点数？若没有明确证据，请拒绝推断。",
+      "expectedTerms": [],
+      "rubric": {
+        "requiredFacts": [
+          "明确说明没有找到火星基地数据库节点数证据",
+          "不推断节点数",
+          "说明需要架构或部署资料"
+        ],
+        "forbiddenClaims": [
+          "编造节点数量",
+          "把其他系统数字当作节点数"
+        ],
+        "expectedBehavior": "insufficient-evidence",
+        "citationRequired": false,
+        "failureTags": [
+          "failed_abstention",
+          "hallucination",
+          "unsupported_claim"
+        ]
+      },
+      "contract": {
+        "schemaVersion": 1,
+        "strictness": "hard",
+        "answer": {
+          "requiredPhrasesAny": [
+            "没有找到",
+            "未找到",
+            "没有明确证据",
+            "无法确认"
+          ]
+        },
+        "tools": {
+          "mustUseAny": [
+            "search_notes",
+            "grep_notes"
+          ],
+          "maxRagCalls": 4
+        },
+        "trajectory": {
+          "maxSteps": 6,
+          "allowedTerminationReasons": [
+            "completed"
+          ],
+          "maxToolFailures": 0,
+          "forbidRepeatedFailures": true
+        }
+      }
+    }
+  ]
+}

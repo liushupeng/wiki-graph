@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from wiki_graph.graph.builder import build_agent_graph
-from wiki_graph.graph.state import AgentState
+from graph.builder import build_agent_graph
+from graph.state import AgentState
 
 
 def test_graph_compiles_without_invoke() -> None:
@@ -13,7 +13,7 @@ def test_graph_compiles_without_invoke() -> None:
         "rag_budget": 4,
         "rag_calls_used": 0,
         "evidence_entries": [],
-        "active_tools": ["search_notes", "read_note"],
+        "active_tools": ["search_notes", "grep_notes", "read_note", "query_incident_ticket"],
     }
     assert state["rag_budget"] == 4
     assert build_agent_graph.__name__ == "build_agent_graph"

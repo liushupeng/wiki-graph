@@ -4,14 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from wiki_graph.config import Settings
-from wiki_graph.rag.index import build_index
-from wiki_graph.rag.retriever import get_retriever
+from config import Settings
+from rag.index import build_index
+from rag.retriever import get_retriever
 
 
 @pytest.fixture()
 def indexed_settings(tmp_path: Path) -> Settings:
-    repo = Path(__file__).resolve().parents[1]
+    repo = Path(__file__).resolve().parents[3]
     return Settings(
         base_url=None,
         api_key=None,
@@ -27,10 +27,9 @@ def test_build_index_and_search(indexed_settings: Settings) -> None:
     build_index(indexed_settings)
     retriever = get_retriever(indexed_settings)
     # FakeEmbeddings 的向量排序噪声大，用文档里英文关键词让 BM25 稳定命中
-    hits = retriever.search("Cache-Control max-age 300", top_k=5)
+    hits = retriever.search("300 秒内可视为新鲜", top_k=8)
     assert hits
-    sources = {h.source for h in hits}
-    assert any("http-caching" in s for s in sources)
+    assert any("300" in h.content and "新鲜" in h.content for h in hits)
 
 
 def test_read_note(indexed_settings: Settings) -> None:

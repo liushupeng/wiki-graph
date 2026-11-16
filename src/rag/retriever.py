@@ -10,7 +10,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_openai import OpenAIEmbeddings
 from rank_bm25 import BM25Okapi
 
-from wiki_graph.config import Settings
+from config import Settings
 
 CHUNKS_FILE = "chunks.jsonl"
 MANIFEST_FILE = "manifest.json"
@@ -66,7 +66,7 @@ class HybridRetriever:
         chunks_path = self.index_dir / CHUNKS_FILE
         if not chunks_path.is_file():
             raise FileNotFoundError(
-                f"索引不存在: {chunks_path}。请先运行 `python -m wiki_graph.cli index`。"
+                f"索引不存在: {chunks_path}。请先运行 `wiki-graph index` 或 `python -m cli index`。"
             )
         with chunks_path.open(encoding="utf-8") as f:
             for line in f:

@@ -120,6 +120,16 @@ def build_model_feedback(
     )
 
 
+_ABSTAIN_MARKERS = (
+    "没有找到",
+    "未找到",
+    "证据不足",
+    "无法确认",
+    "没有明确证据",
+    "无法确认这个问题的答案",
+)
+
+
 def finalize_content(
     content: str,
     *,
@@ -129,6 +139,9 @@ def finalize_content(
 ) -> tuple[str, Literal["allow", "forced-abstention"]]:
     if rag_calls_used > 0 and evidence_count == 0:
         return ABSTAIN_MESSAGE, "forced-abstention"
-    if evidence_status == "insufficient" and rag_calls_used > 0 and evidence_count == 0:
-        return ABSTAIN_MESSAGE, "forced-abstention"
+    if evidence_status == "insufficient" and evidence_count == 0:
+        if rag_calls_used > 0:
+            return ABSTAIN_MESSAGE, "forced-abstention"
+        if not any(m in content for m in _ABSTAIN_MARKERS) and len(content.strip()) > 60:
+            return ABSTAIN_MESSAGE, "forced-abstention"
     return content, "allow"

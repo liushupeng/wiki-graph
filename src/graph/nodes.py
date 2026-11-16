@@ -6,15 +6,15 @@ from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import ToolNode
 
-from wiki_graph.config import Settings
-from wiki_graph.graph.state import AgentState
-from wiki_graph.policy.evidence import (
+from config import Settings
+from graph.state import AgentState
+from policy.evidence import (
     build_model_feedback,
     finalize_content,
     record_tool_result,
     assess_evidence,
 )
-from wiki_graph.policy.tool_budget import RAG_TOOL_NAMES, apply_budget_to_active_tools
+from policy.tool_budget import RAG_TOOL_NAMES, apply_budget_to_active_tools
 
 SYSTEM_PROMPT = """你是 wiki-graph 知识库助手，回答应基于工具检索到的笔记内容。
 需要事实时优先调用 search_notes 或 read_note；回答中注明来源路径（如 dev/http-caching.md）。

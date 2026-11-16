@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import json
 
-from wiki_graph.policy.evidence import (
+from policy.evidence import (
     ABSTAIN_MESSAGE,
     assess_evidence,
     finalize_content,
     record_tool_result,
 )
-from wiki_graph.policy.tool_budget import apply_budget_to_active_tools
+from policy.tool_budget import apply_budget_to_active_tools
 
 
 def test_record_search_matches() -> None:

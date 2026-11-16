@@ -4,7 +4,7 @@ import json
 
 from langchain_core.tools import tool
 
-from wiki_graph.rag.retriever import HybridRetriever
+from rag.retriever import HybridRetriever
 
 
 def make_search_notes_tool(retriever: HybridRetriever):

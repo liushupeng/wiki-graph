@@ -13,8 +13,8 @@ from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from wiki_graph.config import Settings
-from wiki_graph.rag.retriever import CHUNKS_FILE, MANIFEST_FILE
+from config import Settings
+from rag.retriever import CHUNKS_FILE, MANIFEST_FILE
 
 
 def _embeddings(settings: Settings):

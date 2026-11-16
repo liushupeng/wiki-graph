@@ -21,29 +21,34 @@ fixtures corpus
 
 生产级细节、评测数字与架构说明以母项目为准；本仓侧重 **可克隆、可索引、可 ask、可与母项目同题对照**。
 
+## 源码布局
+
+与 [wiki-agent `src/`](https://github.com/liushupeng/wiki-agent/tree/main/src) 类似：`src/` 按功能分目录（`graph`、`tools`、`rag`、`policy`、`eval`），离线测试在 `src/tests/` 下与模块一一对应；CLI 实现在 `src/cli.py`。
+
 ## 架构
 
 ```mermaid
 flowchart LR
     user["CLI"]
-    graph["LangGraph<br/>agent ↔ tools → finalize"]
+    agentLoop["LangGraph: agent, tools, finalize"]
     llm["OpenAI-compatible LLM"]
-    tools["search_notes / read_note"]
-    idx[".wiki_graph_index<br/>Chroma + chunks.jsonl"]
-    policy["Evidence + RAG budget<br/>hide tools / abstain"]
+    ragTools["search / grep / read + mock ticket"]
+    idx["Local index: Chroma + BM25"]
+    policy["Evidence + RAG budget"]
 
-    user --> graph
-    graph <--> llm
-    graph --> tools --> idx
-    tools --> policy --> graph
+    user --> agentLoop
+    agentLoop <--> llm
+    agentLoop --> ragTools --> idx
+    ragTools --> policy --> agentLoop
 ```
 
 ## 核心能力
 
 - **混合 RAG（简化版）**：Markdown 语料分块；向量检索与 BM25 RRF 融合；`index` / `search` / `read` 可脱离 LLM 调试。
 - **证据与预算**：RAG 工具结果记入库存，`evidence_status` 为 `insufficient | partial | sufficient`；`RAG_BUDGET` 耗尽后不再向模型暴露 RAG 工具；无证据时拒答模板收口。
-- **工具命名**：`search_notes`、`read_note` 与 wiki-agent 对齐，便于共享 fixture 与评测叙事。
-- **Checkpoint**：内存 checkpointer，便于后续多轮扩展。
+- **工具**：`search_notes`、`grep_notes`、`read_note` 与 wiki-agent 对齐；`query_incident_ticket` 为 Mock 工单（非 RAG，展示 Tool Calling 广度）。
+- **评测**：`fixtures/e2e/questions.json` 为母项目 12 题子集；`wiki-graph eval` 跑简化 TaskContract（需 LLM）。
+- **Checkpoint**：内存 checkpointer + `repl` 多轮会话。
 
 ## 快速开始
 
@@ -77,9 +82,9 @@ MODEL_NAME=your_model
 **索引与问答**
 
 ```bash
-python -m wiki_graph.cli index
-python -m wiki_graph.cli --check-llm
-python -m wiki_graph.cli ask "HTTP 缓存里 max-age=300 表示什么？"
+wiki-graph index
+wiki-graph --check-llm
+wiki-graph ask "HTTP 缓存里 max-age=300 表示什么？"
 ```
 
 ### 常用 CLI
@@ -91,16 +96,22 @@ python -m wiki_graph.cli ask "HTTP 缓存里 max-age=300 表示什么？"
 | `read <path>` | 按相对路径读笔记片段 |
 | `--check-llm` | 探测 Chat API |
 | `ask <question>` | LangGraph Agent 单次问答 |
+| `ask <question> --stream` | 流式打印回答增量 |
+| `repl` | 多轮 REPL（共享 checkpoint） |
+| `eval` | E2E 子集（简化 contract，需 API） |
 
-`pip install -e` 后也可使用 **`wiki-graph`**（与 `python -m wiki_graph.cli` 等价）。
+安装 `pip install -e ".[dev]"` 后使用 `wiki-graph`，或 `python -m cli`（需在仓库根目录且 `PYTHONPATH` 含 `src`，一般仅开发调试）。
 
 ## 开发与验证
 
 ```bash
-# 无 API 的索引与测试
+# 无 API 的索引与离线测试
 export WIKI_GRAPH_EMBEDDING=fake   # Windows: $env:WIKI_GRAPH_EMBEDDING="fake"
-python -m wiki_graph.cli index
+wiki-graph index
 pytest -q
+
+# 有 API 时跑 E2E 子集（LLM 波动可能导致偶发失败）
+wiki-graph eval
 ```
 
 ## 环境变量
@@ -119,7 +130,7 @@ pytest -q
 
 ## 语料
 
-`fixtures/corpus/` 来自 wiki-agent 公开目录 [`examples/public-knowledge`](https://github.com/liushupeng/wiki-agent/tree/main/examples/public-knowledge)。索引产物写入 `.wiki_graph_index/`（本地生成，不入库）。
+`fixtures/corpus/` 与 `fixtures/e2e/questions.json` 来自 wiki-agent 公开快照（语料与 e2e 题 `id` 保留，便于交叉验证）。索引产物写入 `.wiki_graph_index/`（本地生成，不入库）。
 
 ## 项目边界
 
