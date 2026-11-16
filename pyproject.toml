@@ -9,12 +9,15 @@ authors = [{ name = "LiuShuPeng" }]
 dependencies = [
     "langchain>=0.3.0",
     "langchain-community>=0.3.0",
+    "langchain-huggingface>=0.1.0",
+    "langchain-chroma>=0.2.0",
     "langchain-openai>=0.2.0",
     "langchain-text-splitters>=0.3.0",
     "langgraph>=0.2.0",
     "chromadb>=0.5.0",
     "rank-bm25>=0.2.2",
     "python-dotenv>=1.0.0",
+    "sentence-transformers>=3.0.0",
 ]
 
 [project.optional-dependencies]
@@ -29,7 +32,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
-py-modules = ["config"]
+py-modules = ["cli", "config"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

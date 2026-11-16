@@ -1,30 +1,21 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import uuid
 from pathlib import Path
 
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
-from langchain_community.embeddings import FakeEmbeddings
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_core.documents import Document
-from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from config import Settings
+from rag.embeddings import make_embeddings
 from rag.retriever import CHUNKS_FILE, MANIFEST_FILE
 
-
-def _embeddings(settings: Settings):
-    if settings.embedding_mode == "fake" or not settings.llm_configured():
-        return FakeEmbeddings(size=384)
-    return OpenAIEmbeddings(
-        model=os.getenv("EMBEDDING_MODEL_NAME", "text-embedding-3-small"),
-        openai_api_key=settings.api_key,
-        openai_api_base=settings.base_url,
-    )
+CHUNK_SIZE = 800
+CHUNK_OVERLAP = 120
 
 
 def _relative_source(corpus_dir: Path, path: Path) -> str:
@@ -58,8 +49,8 @@ def build_index(settings: Settings | None = None, *, reset: bool = True) -> Path
         doc.metadata["source"] = _relative_source(corpus_dir, src_path)
 
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=800,
-        chunk_overlap=120,
+        chunk_size=CHUNK_SIZE,
+        chunk_overlap=CHUNK_OVERLAP,
         separators=["\n## ", "\n### ", "\n", " "],
     )
     splits = splitter.split_documents(raw_docs)
@@ -97,15 +88,22 @@ def build_index(settings: Settings | None = None, *, reset: bool = True) -> Path
 
     Chroma.from_documents(
         lc_docs,
-        embedding=_embeddings(settings),
+        embedding=make_embeddings(settings),
         collection_name="wiki_graph",
         persist_directory=str(chroma_dir),
     )
 
     manifest = {
+        "version": 1,
+        "profile": settings.index_profile,
+        "variant": settings.index_variant,
         "corpus_dir": str(corpus_dir),
         "chunk_count": len(chunk_rows),
+        "chunkSize": CHUNK_SIZE,
+        "overlap": CHUNK_OVERLAP,
         "embedding_mode": settings.embedding_mode,
+        "embedding_model": settings.embedding_model,
+        "stores": {"sparse": CHUNKS_FILE, "dense": "chroma/"},
     }
     with (index_dir / MANIFEST_FILE).open("w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2)

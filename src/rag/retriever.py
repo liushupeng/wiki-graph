@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass
 from typing import Any
 
-from langchain_community.embeddings import FakeEmbeddings
-from langchain_community.vectorstores import Chroma
-from langchain_openai import OpenAIEmbeddings
+from langchain_chroma import Chroma
 from rank_bm25 import BM25Okapi
 
 from config import Settings
+from rag.embeddings import make_embeddings
 
 CHUNKS_FILE = "chunks.jsonl"
 MANIFEST_FILE = "manifest.json"
@@ -42,16 +40,6 @@ def _rrf_merge(
     return [doc_id for doc_id, _ in ordered]
 
 
-def _embeddings(settings: Settings):
-    if settings.embedding_mode == "fake" or not settings.llm_configured():
-        return FakeEmbeddings(size=384)
-    return OpenAIEmbeddings(
-        model=os.getenv("EMBEDDING_MODEL_NAME", "text-embedding-3-small"),
-        openai_api_key=settings.api_key,
-        openai_api_base=settings.base_url,
-    )
-
-
 class HybridRetriever:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -78,7 +66,7 @@ class HybridRetriever:
         self._vector = Chroma(
             collection_name="wiki_graph",
             persist_directory=str(self.index_dir / "chroma"),
-            embedding_function=_embeddings(self.settings),
+            embedding_function=make_embeddings(self.settings),
         )
 
     def search(self, query: str, top_k: int = 5) -> list[SearchHit]:

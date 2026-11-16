@@ -5,7 +5,7 @@ from graph.state import AgentState
 
 
 def test_graph_compiles_without_invoke() -> None:
-    """M2：图可编译；完整 invoke 依赖 API，在 CI 外手动 --check-llm / ask。"""
+    """M2：图可编译；完整 invoke 依赖 API，在 CI 外手动 check-llm / ask。"""
     # 仅验证 State 字段与 builder 导入（不触发 LLM）
     state: AgentState = {
         "messages": [],

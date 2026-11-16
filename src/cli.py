@@ -4,7 +4,6 @@ import argparse
 import json
 import sys
 import uuid
-from pathlib import Path
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
@@ -12,6 +11,7 @@ from langchain_core.messages import HumanMessage
 from config import Settings
 from eval.run_e2e import run_e2e_suite
 from graph.builder import build_agent_graph
+from rag.embeddings import LocalEmbeddingModelMissing
 from rag.index import build_index
 from rag.retriever import get_retriever
 from tools import DEFAULT_ACTIVE_TOOLS
@@ -21,9 +21,32 @@ def _load_env() -> None:
     load_dotenv()
 
 
+def _index_embedding_api_help(settings: Settings) -> str:
+    return (
+        "在线 Embedding API 调用失败（模式 "
+        f"{settings.embedding_mode!r}，模型 {settings.embedding_model!r}）。\n"
+        "离线索引请用 WIKI_GRAPH_EMBEDDING=local；仅 Agent 问答需要 Chat API。"
+    )
+
+
 def cmd_index(_: argparse.Namespace) -> int:
     settings = Settings.from_env()
-    out = build_index(settings)
+    try:
+        out = build_index(settings)
+    except LocalEmbeddingModelMissing as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    except Exception as exc:
+        err = str(exc).lower()
+        if "404" in err or exc.__class__.__name__ in {"NotFoundError", "APIStatusError"}:
+            print(_index_embedding_api_help(settings), file=sys.stderr)
+            print(f"\n{exc}", file=sys.stderr)
+            return 1
+        raise
+    print(
+        f"embedding={settings.embedding_mode} model={settings.resolved_embedding_model()} "
+        f"device={settings.embedding_device}"
+    )
     print(f"索引已写入: {out}")
     return 0
 
@@ -165,7 +188,7 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("--query", default=None)
     rp.add_argument("--max-chunks", type=int, default=8)
 
-    p.add_argument("--check-llm", action="store_true", help="探测 Chat API 是否可用")
+    sub.add_parser("check-llm", help="探测 Chat API 是否可用")
 
     ap = sub.add_parser("ask", help="单次提问（LangGraph Agent）")
     ap.add_argument("question")
@@ -184,16 +207,15 @@ def main(argv: list[str] | None = None) -> None:
     _load_env()
     argv = argv if argv is not None else sys.argv[1:]
     parser = build_parser()
-    if argv == ["--check-llm"]:
-        raise SystemExit(cmd_check_llm(argparse.Namespace()))
     args = parser.parse_args(argv)
-    if args.command is None and not getattr(args, "check_llm", False):
+    if args.command is None:
         parser.print_help()
         raise SystemExit(0)
     dispatch = {
         "index": cmd_index,
         "search": cmd_search,
         "read": cmd_read,
+        "check-llm": cmd_check_llm,
         "ask": cmd_ask,
         "repl": cmd_repl,
         "eval": cmd_eval,

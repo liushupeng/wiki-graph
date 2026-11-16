@@ -18,8 +18,15 @@ def indexed_settings(tmp_path: Path) -> Settings:
         model_name="test",
         corpus_dir=repo / "fixtures" / "corpus",
         index_dir=tmp_path / "index",
+        index_profile="wiki-graph-v1",
+        index_variant="raw-wiki",
         rag_budget=4,
         embedding_mode="fake",
+        embedding_model="text-embedding-3-small",
+        embedding_base_url=None,
+        embedding_api_key=None,
+        embedding_device="cpu",
+        embedding_model_path=repo / "models" / "bge-small-zh-v1.5",
     )
 
 
