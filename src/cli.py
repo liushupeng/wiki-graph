@@ -85,13 +85,9 @@ def cmd_check_llm(_: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_ask(args: argparse.Namespace) -> int:
-    settings = Settings.from_env()
-    graph = build_agent_graph(settings)
-    thread_id = args.thread or str(uuid.uuid4())
-    config = {"configurable": {"thread_id": thread_id}}
-    initial: dict = {
-        "messages": [HumanMessage(content=args.question)],
+def _bootstrap_state(question: str, settings: Settings) -> dict:
+    return {
+        "messages": [HumanMessage(content=question)],
         "evidence_status": "insufficient",
         "rag_budget": settings.rag_budget,
         "rag_calls_used": 0,
@@ -99,9 +95,12 @@ def cmd_ask(args: argparse.Namespace) -> int:
         "active_tools": list(DEFAULT_ACTIVE_TOOLS),
         "turn_metadata": {"mode": "ask"},
     }
-    if args.stream:
+
+
+def _run_turn(graph, state: dict, config: dict, *, no_stream: bool) -> None:
+    if not no_stream:
         last_content = ""
-        for event in graph.stream(initial, config, stream_mode="values"):
+        for event in graph.stream(state, config, stream_mode="values"):
             messages = event.get("messages") or []
             if not messages:
                 continue
@@ -113,47 +112,48 @@ def cmd_ask(args: argparse.Namespace) -> int:
                 print(delta, end="", flush=True)
                 last_content = text
         print()
-        return 0
-
-    final = graph.invoke(initial, config)
+        return
+    final = graph.invoke(state, config)
     last = final["messages"][-1]
     content = last.content if isinstance(last.content, str) else str(last.content)
     print(content)
-    return 0
 
 
-def cmd_repl(_: argparse.Namespace) -> int:
+def cmd_ask(args: argparse.Namespace) -> int:
     settings = Settings.from_env()
+    interactive = args.question is None
+    if interactive:
+        print(
+            "正在初始化（加载混合索引与 embedding，首次可能较慢）…",
+            file=sys.stderr,
+            flush=True,
+        )
+    elif not args.no_stream:
+        print("正在处理问题…", file=sys.stderr, flush=True)
     graph = build_agent_graph(settings)
-    thread_id = str(uuid.uuid4())
+    thread_id = args.thread or str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
-    print("wiki-graph REPL（空行退出）")
-    bootstrapped = False
-    while True:
-        try:
-            line = input("> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            break
-        if not line:
-            break
-        if not bootstrapped:
-            state = {
-                "messages": [HumanMessage(content=line)],
-                "evidence_status": "insufficient",
-                "rag_budget": settings.rag_budget,
-                "rag_calls_used": 0,
-                "evidence_entries": [],
-                "active_tools": list(DEFAULT_ACTIVE_TOOLS),
-                "turn_metadata": {"mode": "repl"},
-            }
-            bootstrapped = True
-        else:
-            state = {"messages": [HumanMessage(content=line)]}
-        final = graph.invoke(state, config)
-        last = final["messages"][-1]
-        content = last.content if isinstance(last.content, str) else str(last.content)
-        print(content)
+
+    if interactive:
+        print("就绪。请输入问题（多轮同一会话，空行退出）：", file=sys.stderr, flush=True)
+        bootstrapped = False
+        while True:
+            try:
+                line = input("> ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print()
+                break
+            if not line:
+                break
+            if not bootstrapped:
+                state = _bootstrap_state(line, settings)
+                bootstrapped = True
+            else:
+                state = {"messages": [HumanMessage(content=line)]}
+            _run_turn(graph, state, config, no_stream=args.no_stream)
+        return 0
+
+    _run_turn(graph, _bootstrap_state(args.question, settings), config, no_stream=args.no_stream)
     return 0
 
 
@@ -190,12 +190,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("check-llm", help="探测 Chat API 是否可用")
 
-    ap = sub.add_parser("ask", help="单次提问（LangGraph Agent）")
-    ap.add_argument("question")
+    ap = sub.add_parser("ask", help="提问；不写问题则进入多轮交互")
+    ap.add_argument("question", nargs="?", default=None, help="问题正文；省略则空行退出")
     ap.add_argument("--thread", default=None, help="checkpoint thread id（多轮预留）")
-    ap.add_argument("--stream", action="store_true", help="流式打印最终回答增量")
-
-    sub.add_parser("repl", help="多轮 REPL（共享 checkpoint thread）")
+    ap.add_argument(
+        "--no-stream",
+        action="store_true",
+        help="等待图执行完毕后一次性输出（脚本/重定向时用）",
+    )
 
     ep = sub.add_parser("eval", help="运行 fixtures/e2e 子集（需 LLM API）")
     ep.add_argument("--limit", type=int, default=None, help="仅跑前 N 题")
@@ -217,7 +219,6 @@ def main(argv: list[str] | None = None) -> None:
         "read": cmd_read,
         "check-llm": cmd_check_llm,
         "ask": cmd_ask,
-        "repl": cmd_repl,
         "eval": cmd_eval,
     }
     handler = dispatch.get(args.command)

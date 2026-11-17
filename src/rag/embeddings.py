@@ -4,10 +4,23 @@ import os
 from contextlib import contextmanager
 from pathlib import Path
 
-from langchain_community.embeddings import FakeEmbeddings
+from langchain_core.embeddings import Embeddings
 from langchain_openai import OpenAIEmbeddings
 
 from config import DEFAULT_LOCAL_EMBEDDING_MODEL, Settings
+
+
+class FakeEmbeddings(Embeddings):
+    """测试 / fake 模式用固定维零向量（不依赖 langchain-community）。"""
+
+    def __init__(self, size: int = 384) -> None:
+        self.size = size
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [[0.0] * self.size for _ in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return [0.0] * self.size
 
 
 class LocalEmbeddingModelMissing(RuntimeError):
@@ -83,7 +96,7 @@ def _local_embeddings(settings: Settings):
         )
 
 
-def make_embeddings(settings: Settings) -> FakeEmbeddings | OpenAIEmbeddings:
+def make_embeddings(settings: Settings) -> Embeddings:
     mode = settings.embedding_mode
     if mode == "fake":
         return FakeEmbeddings(size=384)

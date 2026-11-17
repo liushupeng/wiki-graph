@@ -5,7 +5,6 @@ import shutil
 import uuid
 from pathlib import Path
 
-from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -23,6 +22,18 @@ def _relative_source(corpus_dir: Path, path: Path) -> str:
     return rel
 
 
+def _load_markdown_corpus(corpus_dir: Path) -> list[Document]:
+    docs: list[Document] = []
+    for path in sorted(corpus_dir.rglob("*.md")):
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        docs.append(
+            Document(page_content=text, metadata={"source": _relative_source(corpus_dir, path)})
+        )
+    return docs
+
+
 def build_index(settings: Settings | None = None, *, reset: bool = True) -> Path:
     settings = settings or Settings.from_env()
     corpus_dir = settings.corpus_dir.resolve()
@@ -35,18 +46,9 @@ def build_index(settings: Settings | None = None, *, reset: bool = True) -> Path
         shutil.rmtree(index_dir)
     index_dir.mkdir(parents=True, exist_ok=True)
 
-    loader = DirectoryLoader(
-        str(corpus_dir),
-        glob="**/*.md",
-        loader_cls=TextLoader,
-        loader_kwargs={"encoding": "utf-8"},
-        show_progress=True,
-        use_multithreading=True,
-    )
-    raw_docs = loader.load()
-    for doc in raw_docs:
-        src_path = Path(doc.metadata.get("source", ""))
-        doc.metadata["source"] = _relative_source(corpus_dir, src_path)
+    raw_docs = _load_markdown_corpus(corpus_dir)
+    if not raw_docs:
+        raise FileNotFoundError(f"语料目录下没有 .md 文件: {corpus_dir}")
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE,
