@@ -6,8 +6,15 @@ import sys
 import uuid
 
 from dotenv import load_dotenv
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
+from cli_streaming import (
+    AssistantStreamEmitter,
+    assistant_has_tool_calls,
+    assistant_text,
+    find_latest_assistant,
+    tool_call_names,
+)
 from config import Settings
 from eval.run_e2e import run_e2e_suite
 from graph.builder import build_agent_graph
@@ -97,26 +104,45 @@ def _bootstrap_state(question: str, settings: Settings) -> dict:
     }
 
 
+def _final_assistant_text(messages: list) -> str:
+    for msg in reversed(messages):
+        if isinstance(msg, AIMessage) and not assistant_has_tool_calls(msg):
+            return assistant_text(msg)
+    ai = find_latest_assistant(messages)
+    return assistant_text(ai) if ai else ""
+
+
+def _log_tool_plan(ai: AIMessage) -> None:
+    names = tool_call_names(ai)
+    if not names:
+        print("正在检索知识库…", file=sys.stderr, flush=True)
+        return
+    label = "、".join(names)
+    print(f"正在调用工具：{label}…", file=sys.stderr, flush=True)
+
+
 def _run_turn(graph, state: dict, config: dict, *, no_stream: bool) -> None:
     if not no_stream:
-        last_content = ""
+        emitter = AssistantStreamEmitter(lambda chunk: print(chunk, end="", flush=True))
+        last_tool_signature: tuple[str, ...] | None = None
         for event in graph.stream(state, config, stream_mode="values"):
             messages = event.get("messages") or []
-            if not messages:
+            ai = find_latest_assistant(messages)
+            if ai is None:
                 continue
-            last = messages[-1]
-            content = getattr(last, "content", "")
-            text = content if isinstance(content, str) else str(content)
-            if text and text != last_content:
-                delta = text[len(last_content) :] if text.startswith(last_content) else text
-                print(delta, end="", flush=True)
-                last_content = text
+            if assistant_has_tool_calls(ai):
+                signature = tuple(tool_call_names(ai))
+                if signature != last_tool_signature:
+                    _log_tool_plan(ai)
+                    last_tool_signature = signature
+                emitter.reset()
+                continue
+            last_tool_signature = None
+            emitter.emit(assistant_text(ai))
         print()
         return
     final = graph.invoke(state, config)
-    last = final["messages"][-1]
-    content = last.content if isinstance(last.content, str) else str(last.content)
-    print(content)
+    print(_final_assistant_text(final.get("messages") or []))
 
 
 def cmd_ask(args: argparse.Namespace) -> int:
@@ -139,7 +165,7 @@ def cmd_ask(args: argparse.Namespace) -> int:
         bootstrapped = False
         while True:
             try:
-                line = input("> ").strip()
+                line = input("\n你 > ").strip()
             except (EOFError, KeyboardInterrupt):
                 print()
                 break
