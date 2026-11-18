@@ -4,28 +4,80 @@ import argparse
 import json
 import sys
 import uuid
+from typing import Callable, Sequence
 
 from dotenv import load_dotenv
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
-from cli_streaming import (
-    AssistantStreamEmitter,
-    assistant_has_tool_calls,
-    assistant_text,
-    find_latest_assistant,
-    tool_call_names,
-)
 from config import Settings
-from eval.run_e2e import run_e2e_suite
-from graph.builder import build_agent_graph
-from rag.embeddings import LocalEmbeddingModelMissing
-from rag.index import build_index
-from rag.retriever import get_retriever
-from tools import DEFAULT_ACTIVE_TOOLS
+from graph.state import AgentState, initial_agent_state
 
 
 def _load_env() -> None:
     load_dotenv()
+
+
+def _find_latest_assistant(messages: Sequence[BaseMessage]) -> AIMessage | None:
+    for msg in reversed(messages):
+        if isinstance(msg, AIMessage):
+            return msg
+    return None
+
+
+def _assistant_text(message: AIMessage) -> str:
+    content = message.content
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and block.get("type") == "text":
+                text = block.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+        return "".join(parts)
+    return str(content) if content is not None else ""
+
+
+def _assistant_has_tool_calls(message: AIMessage) -> bool:
+    tool_calls = getattr(message, "tool_calls", None) or []
+    return len(tool_calls) > 0
+
+
+def _tool_call_names(message: AIMessage) -> list[str]:
+    names: list[str] = []
+    for call in getattr(message, "tool_calls", None) or []:
+        if isinstance(call, dict):
+            name = call.get("name")
+        else:
+            name = getattr(call, "name", None)
+        if isinstance(name, str) and name.strip():
+            names.append(name.strip())
+    return names
+
+
+class _AssistantStreamEmitter:
+    """增量输出助手全文，避免重复刷屏（对齐 wiki-agent assistantStream.ts）。"""
+
+    def __init__(self, on_chunk: Callable[[str], None]) -> None:
+        self._on_chunk = on_chunk
+        self._streamed = ""
+
+    def reset(self) -> None:
+        self._streamed = ""
+
+    def emit(self, full_text: str) -> None:
+        if not full_text or full_text == self._streamed:
+            return
+        if full_text.startswith(self._streamed):
+            delta = full_text[len(self._streamed) :]
+            if delta:
+                self._on_chunk(delta)
+        else:
+            self._on_chunk(f"\n{full_text}" if self._streamed else full_text)
+        self._streamed = full_text
 
 
 def _index_embedding_api_help(settings: Settings) -> str:
@@ -37,6 +89,9 @@ def _index_embedding_api_help(settings: Settings) -> str:
 
 
 def cmd_index(_: argparse.Namespace) -> int:
+    from rag.embeddings import LocalEmbeddingModelMissing
+    from rag.index import build_index
+
     settings = Settings.from_env()
     try:
         out = build_index(settings)
@@ -59,6 +114,8 @@ def cmd_index(_: argparse.Namespace) -> int:
 
 
 def cmd_search(args: argparse.Namespace) -> int:
+    from rag.retriever import get_retriever
+
     retriever = get_retriever(Settings.from_env())
     hits = retriever.search(args.query, top_k=args.top_k)
     for h in hits:
@@ -70,6 +127,8 @@ def cmd_search(args: argparse.Namespace) -> int:
 
 
 def cmd_read(args: argparse.Namespace) -> int:
+    from rag.retriever import get_retriever
+
     retriever = get_retriever(Settings.from_env())
     chunks = retriever.read_note(args.path, query=args.query, max_chunks=args.max_chunks)
     print(json.dumps(chunks, ensure_ascii=False, indent=2))
@@ -92,28 +151,27 @@ def cmd_check_llm(_: argparse.Namespace) -> int:
     return 0
 
 
-def _bootstrap_state(question: str, settings: Settings) -> dict:
-    return {
-        "messages": [HumanMessage(content=question)],
-        "evidence_status": "insufficient",
-        "rag_budget": settings.rag_budget,
-        "rag_calls_used": 0,
-        "evidence_entries": [],
-        "active_tools": list(DEFAULT_ACTIVE_TOOLS),
-        "turn_metadata": {"mode": "ask"},
-    }
+def _bootstrap_state(question: str, settings: Settings) -> AgentState:
+    from tools import DEFAULT_ACTIVE_TOOLS
+
+    return initial_agent_state(
+        question,
+        rag_budget=settings.rag_budget,
+        active_tools=list(DEFAULT_ACTIVE_TOOLS),
+        turn_metadata={"mode": "ask"},
+    )
 
 
 def _final_assistant_text(messages: list) -> str:
     for msg in reversed(messages):
-        if isinstance(msg, AIMessage) and not assistant_has_tool_calls(msg):
-            return assistant_text(msg)
-    ai = find_latest_assistant(messages)
-    return assistant_text(ai) if ai else ""
+        if isinstance(msg, AIMessage) and not _assistant_has_tool_calls(msg):
+            return _assistant_text(msg)
+    ai = _find_latest_assistant(messages)
+    return _assistant_text(ai) if ai else ""
 
 
 def _log_tool_plan(ai: AIMessage) -> None:
-    names = tool_call_names(ai)
+    names = _tool_call_names(ai)
     if not names:
         print("正在检索知识库…", file=sys.stderr, flush=True)
         return
@@ -121,24 +179,24 @@ def _log_tool_plan(ai: AIMessage) -> None:
     print(f"正在调用工具：{label}…", file=sys.stderr, flush=True)
 
 
-def _run_turn(graph, state: dict, config: dict, *, no_stream: bool) -> None:
+def _run_turn(graph, state: AgentState, config: dict, *, no_stream: bool) -> None:
     if not no_stream:
-        emitter = AssistantStreamEmitter(lambda chunk: print(chunk, end="", flush=True))
+        emitter = _AssistantStreamEmitter(lambda chunk: print(chunk, end="", flush=True))
         last_tool_signature: tuple[str, ...] | None = None
         for event in graph.stream(state, config, stream_mode="values"):
             messages = event.get("messages") or []
-            ai = find_latest_assistant(messages)
+            ai = _find_latest_assistant(messages)
             if ai is None:
                 continue
-            if assistant_has_tool_calls(ai):
-                signature = tuple(tool_call_names(ai))
+            if _assistant_has_tool_calls(ai):
+                signature = tuple(_tool_call_names(ai))
                 if signature != last_tool_signature:
                     _log_tool_plan(ai)
                     last_tool_signature = signature
                 emitter.reset()
                 continue
             last_tool_signature = None
-            emitter.emit(assistant_text(ai))
+            emitter.emit(_assistant_text(ai))
         print()
         return
     final = graph.invoke(state, config)
@@ -146,6 +204,8 @@ def _run_turn(graph, state: dict, config: dict, *, no_stream: bool) -> None:
 
 
 def cmd_ask(args: argparse.Namespace) -> int:
+    from graph.builder import build_agent_graph
+
     settings = Settings.from_env()
     interactive = args.question is None
     if interactive:
@@ -175,7 +235,7 @@ def cmd_ask(args: argparse.Namespace) -> int:
                 state = _bootstrap_state(line, settings)
                 bootstrapped = True
             else:
-                state = {"messages": [HumanMessage(content=line)]}
+                state: AgentState = {"messages": [HumanMessage(content=line)]}
             _run_turn(graph, state, config, no_stream=args.no_stream)
         return 0
 
@@ -184,6 +244,8 @@ def cmd_ask(args: argparse.Namespace) -> int:
 
 
 def cmd_eval(args: argparse.Namespace) -> int:
+    from eval.run_e2e import run_e2e_suite
+
     settings = Settings.from_env()
     try:
         suite = run_e2e_suite(settings, limit=args.limit)

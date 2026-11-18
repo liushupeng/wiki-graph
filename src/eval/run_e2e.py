@@ -5,12 +5,11 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from langchain_core.messages import HumanMessage
-
 from config import Settings
 from eval.contracts import QuestionEval, evaluate_question
 from eval.trajectory import final_answer_text, rag_call_count, tool_names_from_messages
 from graph.builder import build_agent_graph
+from graph.state import initial_agent_state
 from tools import DEFAULT_ACTIVE_TOOLS
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -54,15 +53,12 @@ def run_e2e_suite(
     for item in questions:
         qid = item.get("id", "?")
         config = {"configurable": {"thread_id": str(uuid.uuid4())}}
-        initial = {
-            "messages": [HumanMessage(content=item["question"])],
-            "evidence_status": "insufficient",
-            "rag_budget": settings.rag_budget,
-            "rag_calls_used": 0,
-            "evidence_entries": [],
-            "active_tools": list(DEFAULT_ACTIVE_TOOLS),
-            "turn_metadata": {"question_id": qid},
-        }
+        initial = initial_agent_state(
+            item["question"],
+            rag_budget=settings.rag_budget,
+            active_tools=list(DEFAULT_ACTIVE_TOOLS),
+            turn_metadata={"question_id": qid},
+        )
         final = graph.invoke(initial, config)
         messages = final.get("messages") or []
         tool_names = tool_names_from_messages(messages)
