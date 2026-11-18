@@ -20,39 +20,41 @@ fixtures/corpus -> 本地 embedding -> var/indexes (BM25 + Chroma)
 
 ```mermaid
 flowchart TB
-    corpus["fixtures/corpus"]
-    embed["models/bge-small-zh-v1.5"]
-    build["index"]
-    store["var/indexes"]
-    query["search · read"]
+    subgraph indexing [索引与检索]
+        corpus["fixtures/corpus"]
+        embed["models/bge-small-zh-v1.5"]
+        build["index"]
+        store["var/indexes"]
+        query["search, read"]
 
-    corpus --> build
-    embed --> build
-    build --> store
-    query --> store
+        corpus --> build
+        embed --> build
+        build --> store
+        query --> store
+    end
 ```
 
 ### Agent 运行时
 
 ```mermaid
 flowchart TB
-    subgraph runtime["LangGraph 运行时"]
-        cliOn["CLI: ask · eval"]
-        agent["agent"]
-        tools["tools"]
-        finalize["finalize"]
-        llm["LLM<br/>BASE_URL · MODEL_NAME"]
-        idx["混合索引<br/>RRF: BM25 + Chroma"]
+    subgraph runtime [LangGraph 运行时]
+        cliOn["CLI ask eval"]
+        agent[agent]
+        tools[tools]
+        finalize[finalize]
+        llm["LLM BASE_URL MODEL_NAME"]
+        idx["混合索引 RRF BM25 Chroma"]
 
         cliOn --> agent
-        agent <-->|"规划 / 生成"| llm
-        agent -->|"有 tool call"| tools
-        agent -->|"无 tool call"| finalize
-        tools -->|"search_notes · grep · read_note"| idx
-        tools -.->|"query_incident_ticket"| mock["Mock 工单<br/>非 RAG"]
-        tools -->|"证据入库 · 扣 RAG_BUDGET"| agent
-        finalize -->|"sufficient / partial"| outOk["带引用回答"]
-        finalize -->|"insufficient 或预算用尽"| outNo["拒答模板"]
+        agent <-->|规划与生成| llm
+        agent -->|有 tool call| tools
+        agent -->|无 tool call| finalize
+        tools -->|search_notes grep read_note| idx
+        tools -.->|query_incident_ticket| mock["Mock 工单 非 RAG"]
+        tools -->|证据入库 扣 RAG_BUDGET| agent
+        finalize -->|sufficient partial| outOk[带引用回答]
+        finalize -->|insufficient 预算用尽| outNo[拒答模板]
     end
 ```
 
